@@ -1,0 +1,4 @@
+cd ~/github/moped/moped_service
+source venv/bin/activate  # Start the virtual environment
+# ... do your work ...
+deactivate  # When finished
