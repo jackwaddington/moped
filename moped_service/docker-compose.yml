@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  moped-api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.env:/app/.env
+      - ./google-credentials.json:/app/google-credentials.json
+      - ./db.sqlite3:/app/db.sqlite3
+    environment:
+      - PYTHONUNBUFFERED=1
