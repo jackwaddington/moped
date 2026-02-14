@@ -4,25 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='FuelEntry',
+            name="FuelEntry",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('timestamp', models.DateTimeField()),
-                ('odometer_km', models.FloatField()),
-                ('fuel_liters', models.FloatField()),
-                ('cost', models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True)),
-                ('notes', models.TextField(blank=True)),
+                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                ("timestamp", models.DateTimeField()),
+                ("odometer_km", models.FloatField()),
+                ("fuel_liters", models.FloatField()),
+                ("cost", models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True)),
+                ("notes", models.TextField(blank=True)),
             ],
             options={
-                'ordering': ['-timestamp'],
+                "ordering": ["-timestamp"],
             },
         ),
     ]

@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('moped', '0001_initial'),
+        ("moped", "0001_initial"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='fuelentry',
-            old_name='cost',
-            new_name='cost_per_liter',
+            model_name="fuelentry",
+            old_name="cost",
+            new_name="cost_per_liter",
         ),
         migrations.AddField(
-            model_name='fuelentry',
-            name='total_spend',
+            model_name="fuelentry",
+            name="total_spend",
             field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True),
         ),
     ]

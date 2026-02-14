@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class MopedConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'moped'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "moped"
