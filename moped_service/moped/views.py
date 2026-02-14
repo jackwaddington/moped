@@ -32,7 +32,7 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
             count = sheets_service.sync_from_sheets()
             return Response({"status": "success", "entries_synced": count})
         except Exception as e:
-            return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_ERROR)
+            return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=["get"])
     def mpg(self, request):
@@ -60,7 +60,7 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
         last_entry = entries.order_by("odometer_km").last()
 
         total_km = last_entry.odometer_km - first_entry.odometer_km
-        total_liters = entries.aggregate(Sum("fuel_liters"))["fuel_liters__sum"]
+        total_liters = entries.exclude(pk=first_entry.pk).aggregate(Sum("fuel_liters"))["fuel_liters__sum"]
         avg_cost_per_liter = entries.aggregate(Avg("cost_per_liter"))["cost_per_liter__avg"]
         km_per_liter = total_km / total_liters if total_liters > 0 else 0
         miles_per_gallon = km_per_liter * 2.352  # Convert to MPG (US gallons)
