@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from decouple import config
@@ -6,6 +7,7 @@ from googleapiclient.discovery import build
 
 from .models import FuelEntry
 
+logger = logging.getLogger(__name__)
 
 class GoogleSheetsService:
     """Service to interact with Google Sheets"""
@@ -47,7 +49,7 @@ class GoogleSheetsService:
                     entries.append(entry)
                 except (ValueError, IndexError) as e:
                     # Log error and skip malformed rows
-                    print(f"Skipping row due to error: {e}")
+                    logger.warning("Skipping row due to error: %s", e)
                     continue
 
         FuelEntry.objects.bulk_create(entries)
