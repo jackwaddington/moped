@@ -24,3 +24,7 @@ Use an api to ask things like what is mpg, or also to see when should there be a
 I want to go into more detail of how the fuel stuff is calculated - i think there are some mistakes there.
 
 i want to be able to say how much 1km costs.
+
+
+we need to check ranges of data - we should know if km goes down, we should know if there are any big changes in economy etc.
+

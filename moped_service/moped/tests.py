@@ -81,24 +81,6 @@ class FuelEntryAPITest(APITestCase):
         response = self.client.get("/api/moped-entries/last-fillup/")
         self.assertEqual(response.status_code, 404)
 
-    def test_mpg_excludes_first_fillup_fuel(self):
-        """MPG calculation should exclude the first entry's fuel.
-
-        The first fillup's fuel was burned BEFORE that odometer reading,
-        so it doesn't belong in the distance/fuel calculation.
-
-        Distance: 1120 - 1000 = 120 km
-        Fuel (excluding first): 2.5 + 3.5 = 6.0 L
-        km_per_liter: 120 / 6.0 = 20.0
-        """
-        response = self.client.get("/api/moped-entries/mpg/?month=2025-01")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["total_km"], 120.0)
-        self.assertEqual(response.data["total_liters"], 6.0)  # NOT 9.0
-        self.assertEqual(response.data["km_per_liter"], 20.0)  # NOT 13.33
-
-
-
 class SyncServiceTest(TestCase):
     """Tests for Google Sheets sync service"""
 
@@ -191,3 +173,84 @@ class SyncServiceTest(TestCase):
 
         self.assertEqual(count, 2)  # only 2 valid rows
         self.assertEqual(FuelEntry.objects.count(), 2)
+
+
+class CalculationTest(TestCase):
+    """Tests for the calculation engine"""
+
+    def setUp(self):
+        self.entry1 = FuelEntry.objects.create(
+            timestamp=datetime(2025, 1, 10, 10, 0),
+            odometer_km=1000.0,
+            fuel_liters=3.0,
+            cost_per_liter=1.80,
+            total_spend=5.40,
+        )
+        self.entry2 = FuelEntry.objects.create(
+            timestamp=datetime(2025, 1, 15, 10, 0),
+            odometer_km=1050.0,
+            fuel_liters=2.5,
+            cost_per_liter=1.85,
+            total_spend=4.63,
+        )
+        self.entry3 = FuelEntry.objects.create(
+            timestamp=datetime(2025, 1, 20, 10, 0),
+            odometer_km=1120.0,
+            fuel_liters=3.5,
+            cost_per_liter=1.90,
+            total_spend=6.65,
+        )
+        self.qs = FuelEntry.objects.all()
+
+    def test_fuel_efficiency(self):
+        """l/100km: (6.0L / 120km) * 100 = 5.0"""
+        from .calculations import fuel_efficiency
+
+        result = fuel_efficiency(self.qs)
+        self.assertEqual(result, 5.0)
+
+    def test_fuel_efficiency_not_enough_data(self):
+        """Should return None with fewer than 2 entries"""
+        from .calculations import fuel_efficiency
+
+        FuelEntry.objects.filter(pk__in=[self.entry2.pk, self.entry3.pk]).delete()
+        result = fuel_efficiency(self.qs)
+        self.assertIsNone(result)
+
+    def test_cost_per_km(self):
+        """cost/km: (4.63 + 6.65) / 120 = 0.094"""
+        from .calculations import cost_per_km
+
+        result = cost_per_km(self.qs)
+        self.assertAlmostEqual(result, 0.094, places=3)
+
+    def test_fillup_pairs(self):
+        """Should return per-segment analysis"""
+        from .calculations import fillup_pairs
+
+        pairs = fillup_pairs(self.qs)
+        self.assertEqual(len(pairs), 2)
+
+        # Segment 1: 1000→1050, 2.5L
+        self.assertEqual(pairs[0]["distance_km"], 50.0)
+        self.assertEqual(pairs[0]["fuel_liters"], 2.5)
+        self.assertEqual(pairs[0]["l_per_100km"], 5.0)
+        self.assertEqual(pairs[0]["days"], 5)
+
+        # Segment 2: 1050→1120, 3.5L
+        self.assertEqual(pairs[1]["distance_km"], 70.0)
+        self.assertEqual(pairs[1]["fuel_liters"], 3.5)
+        self.assertEqual(pairs[1]["l_per_100km"], 5.0)
+        self.assertEqual(pairs[1]["days"], 5)
+
+    def test_monthly_summary(self):
+        """Should group by month"""
+        from .calculations import monthly_summary
+
+        summary = monthly_summary(self.qs)
+        self.assertEqual(len(summary), 1)  # all in January
+        jan = summary[0]
+        self.assertEqual(jan["month"], "2025-01")
+        self.assertEqual(jan["total_distance_km"], 120.0)
+        self.assertEqual(jan["total_fuel_liters"], 6.0)
+        self.assertAlmostEqual(jan["total_cost"], 11.28, places=2)
