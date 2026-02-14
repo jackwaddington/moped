@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 
 from decouple import config
+from django.db import transaction
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -23,6 +24,25 @@ class GoogleSheetsService:
 
         self.service = build("sheets", "v4", credentials=credentials)
 
+    def _parse_row(self, row):
+        """Parse a single spreadsheet row into field values.
+        Returns a dict of fields, or None if the row is malformed."""
+        if len(row) < 3:
+            return None
+        try:
+            return {
+                "timestamp": datetime.strptime(row[0], "%m/%d/%Y %H:%M:%S"),
+                "odometer_km": float(row[1]),
+                "fuel_liters": float(row[2]),
+                "cost_per_liter": float(row[3]) if len(row) > 3 and row[3] else None,
+                "total_spend": float(row[4]) if len(row) > 4 and row[4] else None,
+                "notes": row[5] if len(row) > 5 else "",
+            }
+        except (ValueError, IndexError) as e:
+            logger.warning("Skipping row due to error: %s", e)
+            return None
+
+    @transaction.atomic
     def sync_from_sheets(self):
         """Fetch data from Google Sheets and sync to database"""
         sheet = self.service.spreadsheets()
@@ -30,27 +50,23 @@ class GoogleSheetsService:
 
         values = result.get("values", [])
 
-        # Clear existing data (or implement smarter sync logic)
-        FuelEntry.objects.all().delete()
-
-        # Parse and save entries
-        entries = []
+        count = 0
         for row in values:
-            if len(row) >= 3:  # At minimum: timestamp, km, liters
-                try:
-                    entry = FuelEntry(
-                        timestamp=datetime.strptime(row[0], "%m/%d/%Y %H:%M:%S"),
-                        odometer_km=float(row[1]),
-                        fuel_liters=float(row[2]),
-                        cost_per_liter=float(row[3]) if len(row) > 3 and row[3] else None,
-                        total_spend=float(row[4]) if len(row) > 4 and row[4] else None,
-                        notes=row[5] if len(row) > 5 else "",
-                    )
-                    entries.append(entry)
-                except (ValueError, IndexError) as e:
-                    # Log error and skip malformed rows
-                    logger.warning("Skipping row due to error: %s", e)
-                    continue
+            parsed = self._parse_row(row)
+            if parsed is None:
+                continue
 
-        FuelEntry.objects.bulk_create(entries)
-        return len(entries)
+            FuelEntry.objects.update_or_create(
+                timestamp=parsed["timestamp"],
+                odometer_km=parsed["odometer_km"],
+                defaults={
+                    "fuel_liters": parsed["fuel_liters"],
+                    "cost_per_liter": parsed["cost_per_liter"],
+                    "total_spend": parsed["total_spend"],
+                    "notes": parsed["notes"],
+                },
+            )
+            count += 1
+
+        return count
+

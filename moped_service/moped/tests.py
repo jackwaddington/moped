@@ -1,4 +1,5 @@
 from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
 from rest_framework.test import APITestCase
@@ -95,3 +96,98 @@ class FuelEntryAPITest(APITestCase):
         self.assertEqual(response.data["total_km"], 120.0)
         self.assertEqual(response.data["total_liters"], 6.0)  # NOT 9.0
         self.assertEqual(response.data["km_per_liter"], 20.0)  # NOT 13.33
+
+
+
+class SyncServiceTest(TestCase):
+    """Tests for Google Sheets sync service"""
+
+    def _mock_sheets_service(self, rows):
+        """Helper: creates a mock Google Sheets service returning given rows"""
+        mock_service = MagicMock()
+        mock_service.spreadsheets().values().get().execute.return_value = {
+            "values": rows
+        }
+        return mock_service
+
+    @patch("moped.services.config", return_value="test-value")
+    @patch("moped.services.build")
+    @patch("moped.services.service_account.Credentials.from_service_account_file")
+    def test_sync_creates_entries(self, mock_creds, mock_build, mock_config):
+        """Sync should create FuelEntry records from sheet data"""
+        from .services import GoogleSheetsService
+
+        mock_build.return_value = self._mock_sheets_service([
+            ["01/10/2025 10:00:00", "1000", "3.0", "1.80", "5.40"],
+            ["01/15/2025 10:00:00", "1050", "2.5", "1.85", "4.63"],
+        ])
+
+        service = GoogleSheetsService()
+        count = service.sync_from_sheets()
+
+        self.assertEqual(count, 2)
+        self.assertEqual(FuelEntry.objects.count(), 2)
+
+    @patch("moped.services.config", return_value="test-value")
+    @patch("moped.services.build")
+    @patch("moped.services.service_account.Credentials.from_service_account_file")
+    def test_sync_no_duplicates(self, mock_creds, mock_build, mock_config):
+        """Syncing the same data twice should not create duplicates"""
+        from .services import GoogleSheetsService
+
+        rows = [
+            ["01/10/2025 10:00:00", "1000", "3.0", "1.80", "5.40"],
+            ["01/15/2025 10:00:00", "1050", "2.5", "1.85", "4.63"],
+        ]
+        mock_build.return_value = self._mock_sheets_service(rows)
+
+        service = GoogleSheetsService()
+        service.sync_from_sheets()
+        service.sync_from_sheets()  # sync again
+
+        self.assertEqual(FuelEntry.objects.count(), 2)  # still 2, not 4
+
+    @patch("moped.services.config", return_value="test-value")
+    @patch("moped.services.build")
+    @patch("moped.services.service_account.Credentials.from_service_account_file")
+    def test_sync_adds_new_rows(self, mock_creds, mock_build, mock_config):
+        """Syncing with new data should add new entries without losing old ones"""
+        from .services import GoogleSheetsService
+
+        # First sync: 2 rows
+        mock_build.return_value = self._mock_sheets_service([
+            ["01/10/2025 10:00:00", "1000", "3.0", "1.80", "5.40"],
+            ["01/15/2025 10:00:00", "1050", "2.5", "1.85", "4.63"],
+        ])
+        service = GoogleSheetsService()
+        service.sync_from_sheets()
+
+        # Second sync: 3 rows (original 2 + 1 new)
+        mock_build.return_value = self._mock_sheets_service([
+            ["01/10/2025 10:00:00", "1000", "3.0", "1.80", "5.40"],
+            ["01/15/2025 10:00:00", "1050", "2.5", "1.85", "4.63"],
+            ["01/20/2025 10:00:00", "1120", "3.5", "1.90", "6.65"],
+        ])
+        service = GoogleSheetsService()
+        service.sync_from_sheets()
+
+        self.assertEqual(FuelEntry.objects.count(), 3)
+
+    @patch("moped.services.config", return_value="test-value")
+    @patch("moped.services.build")
+    @patch("moped.services.service_account.Credentials.from_service_account_file")
+    def test_sync_skips_malformed_rows(self, mock_creds, mock_build, mock_config):
+        """Rows with bad data should be skipped, good rows still saved"""
+        from .services import GoogleSheetsService
+
+        mock_build.return_value = self._mock_sheets_service([
+            ["01/10/2025 10:00:00", "1000", "3.0"],
+            ["bad-date", "nope", "nah"],  # malformed
+            ["01/15/2025 10:00:00", "1050", "2.5"],
+        ])
+
+        service = GoogleSheetsService()
+        count = service.sync_from_sheets()
+
+        self.assertEqual(count, 2)  # only 2 valid rows
+        self.assertEqual(FuelEntry.objects.count(), 2)
