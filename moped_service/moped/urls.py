@@ -7,5 +7,6 @@ router = DefaultRouter()
 router.register(r"moped-entries", FuelEntryViewSet, basename="moped-entry")
 
 urlpatterns = [
+    path("", include("django_prometheus.urls")),  # Prometheus metrics endpoint
     path("", include(router.urls)),
 ]

@@ -2,7 +2,8 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .calculations import fillup_pairs, fuel_efficiency, monthly_summary
+from .calculations import fillup_pairs, fuel_efficiency, monthly_summary, service_status
+from .metrics import entries_synced_last, km_until_service, sync_operations_total
 from .models import FuelEntry
 from .serializers import FuelEntrySerializer
 from .services import GoogleSheetsService
@@ -19,6 +20,8 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
     GET /api/moped-entries/efficiency/?month=2025-01 - Fuel efficiency
     GET /api/moped-entries/fillups/ - Per-segment analysis
     GET /api/moped-entries/monthly/ - Monthly summaries
+    GET /api/moped-entries/service-status/ - Service reminders
+
     """
 
     queryset = FuelEntry.objects.all()
@@ -30,8 +33,11 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             sheets_service = GoogleSheetsService()
             count = sheets_service.sync_from_sheets()
+            sync_operations_total.labels(status="success").inc()
+            entries_synced_last.set(count)
             return Response({"status": "success", "entries_synced": count})
         except Exception as e:
+            sync_operations_total.labels(status="error").inc()
             return Response({"status": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=["get"], url_path="last-fillup")
@@ -81,3 +87,19 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
         qs = self.get_queryset()
         summary = monthly_summary(qs)
         return Response(summary)
+
+    @action(detail=False, methods=["get"], url_path="service-status")
+    def service_reminder(self, request):
+        """Get service reminders based on current odometer reading
+        (requires at least one fuel entry to determine current odometer)"""
+        last_entry = FuelEntry.objects.first()
+        if not last_entry:
+            return Response(
+                {"error": "No fuel entries found to determine current odometer"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        result = service_status(last_entry.odometer_km)
+        for item in result:
+            km_until_service.labels(service_type=item["service"]).set(item["km_remaining"])
+
+        return Response(result)

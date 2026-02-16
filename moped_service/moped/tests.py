@@ -202,6 +202,23 @@ class CalculationTest(TestCase):
         )
         self.qs = FuelEntry.objects.all()
 
+    def test_service_status(self):
+        """Should report km remaining until next service"""
+        from .calculations import service_status
+
+        # Odometer at 1120km, service every 3000km
+        # Next service at 3000km → 1880km remaining
+        result = service_status(1120.0)
+        self.assertEqual(len(result), 2)
+
+        warranty = next(s for s in result if s["service"] == "warranty_service")
+        self.assertEqual(warranty["interval_km"], 3000)
+        self.assertEqual(warranty["km_remaining"], 1880.0)
+        oil = next(s for s in result if s["service"] == "oil_change")
+        self.assertEqual(oil["interval_km"], 1000)
+        self.assertEqual(oil["km_remaining"], 880.0)
+
+
     def test_fuel_efficiency(self):
         """l/100km: (6.0L / 120km) * 100 = 5.0"""
         from .calculations import fuel_efficiency

@@ -1,6 +1,10 @@
 from collections import defaultdict
 from decimal import Decimal
 
+SERVICE_INTERVALS = {
+    "oil_change": 1000,
+    "warranty_service": 3000,
+}
 
 def fuel_efficiency(qs):
     """Calculate l/100km for a queryset of FuelEntry objects.
@@ -93,4 +97,14 @@ def monthly_summary(qs):
             "total_cost": float(round(data["cost"], 2)),
         }
         for month, data in sorted(months.items())
+    ]
+
+def service_status(current_odometer_km):
+    return [
+        {
+            "service": name,
+            "interval_km": interval,
+            "km_remaining": interval - (current_odometer_km % interval),
+        }
+        for name, interval in SERVICE_INTERVALS.items()
     ]

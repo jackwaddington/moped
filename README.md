@@ -25,6 +25,11 @@ I want to go into more detail of how the fuel stuff is calculated - i think ther
 
 i want to be able to say how much 1km costs.
 
+To make fueling easy - if i know i can do a certian km, and then dump in 6 or 10 euro of fuel - that's cool. but standing there dripping fuel in to try to get it to be okay is a bit lame. i really wihs they woudl just have a bigger fuel tank on these!!
+
+it woudl be nice to have a reminder to put fuel in - or maybe no tbecause there is a fuel guage.
+
+it would be nice to have a remidner to do an oil change.
 
 we need to check ranges of data - we should know if km goes down, we should know if there are any big changes in economy etc.
 
