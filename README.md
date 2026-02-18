@@ -49,3 +49,6 @@ I am not making any calculations - I am calling an API that has already made the
         "days": 4
     },
 ```
+And here we see the funny thing about the moped - I struggle to get 10 euro of fuel into it.
+
+I see optimisation in knowing the right time to drop 7 euro in without it overflowing :-D
