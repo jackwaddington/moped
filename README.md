@@ -1,11 +1,11 @@
 # Moped Analyser
 
 Using google forms I have been recording:
-	date
-	odometer
-	amount of fuel
-	cost of fuel/l
-	total spend
+- date
+- odometer
+- amount of fuel
+- cost of fuel/l
+- total spend
 
 
 This is stored in a google sheets document. I pull this data from that document, make some calculations and make that accessable via API.
