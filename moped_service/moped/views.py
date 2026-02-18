@@ -2,7 +2,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .calculations import fillup_pairs, fuel_efficiency, monthly_summary, service_status
+from .calculations import cost_per_km, fillup_pairs, fuel_efficiency, monthly_summary, service_status
 from .metrics import entries_synced_last, km_until_service, sync_operations_total
 from .models import FuelEntry
 from .serializers import FuelEntrySerializer
@@ -72,7 +72,8 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response({"l_per_100km": result, "km_per_liter": round(100 / result, 2)})
+        cost = cost_per_km(qs)
+        return Response({"l_per_100km": result, "km_per_liter": round(100 / result, 2), "cost_per_km": cost})
 
     @action(detail=False, methods=["get"])
     def fillups(self, request):

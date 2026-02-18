@@ -49,6 +49,9 @@ I am not making any calculations - I am calling an API that has already made the
         "days": 4
     },
 ```
+
 And here we see the funny thing about the moped - I struggle to get 10 euro of fuel into it.
 
-I see optimisation in knowing the right time to drop 7 euro in without it overflowing :-D
+The fuel tank is stated to be 6l, and I think when it says 'empty' I actually have 2l left.
+
+With this data I might have the confidence to ride longer, at the risk of having to push it a few KM to the next petrol station.
