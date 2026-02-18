@@ -24,6 +24,15 @@ class GoogleSheetsService:
 
         self.service = build("sheets", "v4", credentials=credentials)
 
+    def _parse_timestamp(self, value):
+        """Parse timestamp, trying multiple date formats"""
+        for fmt in ("%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S"):
+            try:
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+        raise ValueError(f"Unable to parse timestamp: {value}")
+
     def _parse_row(self, row):
         """Parse a single spreadsheet row into field values.
         Returns a dict of fields, or None if the row is malformed."""
@@ -31,7 +40,7 @@ class GoogleSheetsService:
             return None
         try:
             return {
-                "timestamp": datetime.strptime(row[0], "%m/%d/%Y %H:%M:%S"),
+                "timestamp": self._parse_timestamp(row[0]),
                 "odometer_km": float(row[1]),
                 "fuel_liters": float(row[2]),
                 "cost_per_liter": float(row[3]) if len(row) > 3 and row[3] else None,
