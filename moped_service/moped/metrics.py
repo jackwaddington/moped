@@ -18,3 +18,18 @@ km_until_service = Gauge(
     "Kilometers remaining until next service",
     ["service_type"],
 )
+
+current_odometer = Gauge(
+    "moped_current_odometer_km",
+    "Current odometer reading in kilometers",
+)
+
+days_since_last_fueling = Gauge(
+    "moped_days_since_last_fueling",
+    "Days since the last fuel entry",
+)
+
+cost_per_km_gauge = Gauge(
+    "moped_cost_per_km",
+    "Cost per kilometer in euros",
+)

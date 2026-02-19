@@ -1,9 +1,17 @@
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .calculations import cost_per_km, fillup_pairs, fuel_efficiency, monthly_summary, service_status
-from .metrics import entries_synced_last, km_until_service, sync_operations_total
+from .metrics import (
+    cost_per_km_gauge,
+    current_odometer,
+    days_since_last_fueling,
+    entries_synced_last,
+    km_until_service,
+    sync_operations_total,
+)
 from .models import FuelEntry
 from .serializers import FuelEntrySerializer
 from .services import GoogleSheetsService
@@ -35,6 +43,14 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
             count = sheets_service.sync_from_sheets()
             sync_operations_total.labels(status="success").inc()
             entries_synced_last.set(count)
+            last_entry = FuelEntry.objects.first()
+            if last_entry:
+                current_odometer.set(last_entry.odometer_km)
+                days = (timezone.now() - last_entry.timestamp).days
+                days_since_last_fueling.set(days)
+            cost = cost_per_km(FuelEntry.objects.all())
+            if cost is not None:
+                cost_per_km_gauge.set(cost)
             return Response({"status": "success", "entries_synced": count})
         except Exception as e:
             sync_operations_total.labels(status="error").inc()
