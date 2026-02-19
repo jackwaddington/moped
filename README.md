@@ -1,57 +1,85 @@
-# Moped Analyser
+# Moped Fuel Tracker
 
-Using google forms I have been recording:
-- date
-- odometer
-- amount of fuel
-- cost of fuel/l
-- total spend
+Django REST API that pulls fuel data from Google Sheets (fed by Google Forms) and exposes efficiency calculations, cost analysis, and service reminders.
 
+## What it does
 
-This is stored in a google sheets document. I pull this data from that document, make some calculations and make that accessable via API.
+I record every fuel stop on my moped via a Google Form (date, odometer, litres, cost). This service syncs that data and calculates:
 
-The calculations we can make from our data points are:
-- fuel effiency in l/100km.
-- fuel cost per km
-- how much does 1km cost
-- km between fill ups
-- do these numbers change over time? (i expect not) (or is this something we would like to see visualised?)
-- cost of fuel per month
+- **Fuel efficiency** in l/100km and km/L
+- **Cost per km** driven
+- **Per-fillup analysis** with distance, efficiency, and cost between stops
+- **Monthly summaries** of distance, fuel, and cost
+- **Service reminders** based on odometer intervals (oil change every 1000km, warranty service every 3000km)
 
-We also have a simple reminder of when do to maintenance (it's every 1k and 3k). I bet this can be integrated to notification, MQTT for example.
+## API Endpoints
 
-I should add data validation - does KM only go up, are fuel costs consistant (they would be).
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/moped-entries/` | GET | List all fuel entries |
+| `/api/moped-entries/{id}/` | GET | Single entry |
+| `/api/moped-entries/sync/` | POST | Sync from Google Sheets |
+| `/api/moped-entries/last-fillup/` | GET | Most recent fuel entry |
+| `/api/moped-entries/efficiency/` | GET | l/100km, km/L, cost/km |
+| `/api/moped-entries/fillups/` | GET | Per-segment analysis |
+| `/api/moped-entries/monthly/` | GET | Monthly summaries |
+| `/api/moped-entries/service-status/` | GET | Service reminders |
+| `/api/docs/` | GET | Swagger UI |
+| `/api/metrics` | GET | Prometheus metrics |
 
-Really amazing that I can get data out of this! It look many months to get here (Now is February, moped went into winter storage in November) but I am really impressed.
+## Architecture
 
-I am not making any calculations - I am calling an API that has already made the calculation - which is very intersting concept allowing us to define where processing is performed.
+Google Forms -> Google Sheets -> **sync_sheets** -> SQLite (cache) -> Django REST API -> Prometheus -> Grafana
 
-## Monthly Summary
+The SQLite database is an ephemeral cache of the Google Sheets data. All calculations are performed on request. The sync runs on container startup and weekly via a k8s CronJob.
+
+## Prometheus Metrics
+
+| Metric | Type | Description |
+|---|---|---|
+| `moped_sync_operations_total` | Counter | Sync operations by status (success/error) |
+| `moped_entries_synced_last` | Gauge | Entries synced in last operation |
+| `moped_km_until_service` | Gauge | km remaining until next service (by type) |
+| `moped_current_odometer_km` | Gauge | Current odometer reading |
+| `moped_days_since_last_fueling` | Gauge | Days since last fuel entry |
+| `moped_cost_per_km` | Gauge | Cost per km in euros |
+
+Plus standard django-prometheus metrics (request counts, latencies, DB queries).
+
+## Deployment
+
+Runs on a [k3s cluster](https://github.com/jackwaddington/k3s) via [ArgoCD](https://github.com/jackwaddington/homelab-gitops). CI/CD pipeline:
+
+1. Push to `main` triggers GitHub Actions
+2. Docker image built and pushed to `ghcr.io/jackwaddington/moped-service:latest`
+3. ArgoCD detects the change and deploys to k3s
+4. CronJob re-syncs from Google Sheets weekly (Mondays 3am)
+
+## Local Development
+
+```bash
+cd moped_service
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env  # fill in values
+python manage.py migrate
+python manage.py runserver
 ```
-    {
-        "month": "2025-08",
-        "total_distance_km": 322.0,
-        "total_fuel_liters": 7.52,
-        "l_per_100km": 2.34,
-        "total_cost": 13.69
-    },
+
+## Commands
+
+```bash
+ruff check .                   # lint
+ruff format .                  # format
+python manage.py test          # 15 tests
+python manage.py sync_sheets   # manual sync from Google Sheets
 ```
 
-## Summary between top ups
-```
-   {
-        "date": "2025-09-08",
-        "distance_km": 150.0,
-        "fuel_liters": 3.47,
-        "l_per_100km": 2.31,
-        "cost": 6.83,
-        "cost_per_km": 0.046,
-        "days": 4
-    },
-```
+## Tech Stack
 
-And here we see the funny thing about the moped - I struggle to get 10 euro of fuel into it.
-
-The fuel tank is stated to be 6l, and I think when it says 'empty' I actually have 2l left.
-
-With this data I might have the confidence to ride longer, at the risk of having to push it a few KM to the next petrol station.
+- Python 3.11, Django 4.2, Django REST Framework
+- Google Sheets API (service account)
+- django-prometheus for metrics
+- gunicorn for production serving
+- Docker, GitHub Actions, k3s, ArgoCD
