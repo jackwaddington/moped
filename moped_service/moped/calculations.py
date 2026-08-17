@@ -108,3 +108,37 @@ def service_status(current_odometer_km):
         }
         for name, interval in SERVICE_INTERVALS.items()
     ]
+
+
+def suggested_fuel_spend(tank_size_liters, last_entry):
+    """Estimate euros to fill tank without overflowing.
+
+    Uses last fill's liters and cost_per_liter. Returns None if inputs invalid.
+    """
+    if tank_size_liters <= 0 or last_entry is None:
+        return None
+
+    fuel_liters = last_entry.fuel_liters
+    if fuel_liters is None or fuel_liters < 0:
+        return None
+
+    headroom = tank_size_liters - fuel_liters
+    if headroom <= 0:
+        return {
+            "tank_size_liters": tank_size_liters,
+            "last_fill_liters": fuel_liters,
+            "headroom_liters": 0.0,
+            "cost_per_liter": None,
+            "suggested_spend_eur": 0.0,
+        }
+
+    cost_per_liter = float(last_entry.cost_per_liter) if last_entry.cost_per_liter else None
+    suggested = round(headroom * cost_per_liter, 2) if cost_per_liter else None
+
+    return {
+        "tank_size_liters": tank_size_liters,
+        "last_fill_liters": fuel_liters,
+        "headroom_liters": round(headroom, 2),
+        "cost_per_liter": cost_per_liter,
+        "suggested_spend_eur": suggested,
+    }

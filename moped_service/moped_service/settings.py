@@ -25,6 +25,9 @@ SECRET_KEY = config("DJANGO_SECRET_KEY")
 DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
 
+# Moped fuel tank capacity in liters (single vehicle)
+TANK_SIZE_LITERS = config("TANK_SIZE_LITERS", default=5.0, cast=float)
+
 
 # Application definition
 
