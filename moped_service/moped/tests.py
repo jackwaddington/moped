@@ -271,3 +271,39 @@ class CalculationTest(TestCase):
         self.assertEqual(jan["total_distance_km"], 120.0)
         self.assertEqual(jan["total_fuel_liters"], 6.0)
         self.assertAlmostEqual(jan["total_cost"], 11.28, places=2)
+
+    def test_suggested_fuel_spend(self):
+        """Headroom * cost_per_liter for last fillup."""
+        from .calculations import suggested_fuel_spend
+
+        result = suggested_fuel_spend(5.0, self.entry3)
+        self.assertEqual(result["tank_size_liters"], 5.0)
+        self.assertEqual(result["last_fill_liters"], 3.5)
+        self.assertEqual(result["headroom_liters"], 1.5)
+        self.assertEqual(result["cost_per_liter"], 1.90)
+        self.assertEqual(result["suggested_spend_eur"], 2.85)
+
+    def test_suggested_fuel_spend_full_tank(self):
+        from .calculations import suggested_fuel_spend
+
+        self.entry3.fuel_liters = 5.5
+        result = suggested_fuel_spend(5.0, self.entry3)
+        self.assertEqual(result["headroom_liters"], 0.0)
+        self.assertEqual(result["suggested_spend_eur"], 0.0)
+
+
+class SuggestedFuelAPITest(APITestCase):
+    def setUp(self):
+        FuelEntry.objects.create(
+            timestamp=datetime(2025, 1, 20, 10, 0),
+            odometer_km=1120.0,
+            fuel_liters=3.5,
+            cost_per_liter=1.90,
+            total_spend=6.65,
+        )
+
+    def test_suggested_fuel_endpoint(self):
+        response = self.client.get("/api/moped-entries/suggested-fuel/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("suggested_spend_eur", response.data)
+        self.assertIn("headroom_liters", response.data)

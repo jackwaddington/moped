@@ -1,9 +1,10 @@
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .calculations import cost_per_km, fillup_pairs, fuel_efficiency, monthly_summary, service_status
+from .calculations import cost_per_km, fillup_pairs, fuel_efficiency, monthly_summary, service_status, suggested_fuel_spend
 from .metrics import (
     cost_per_km_gauge,
     current_odometer,
@@ -118,5 +119,24 @@ class FuelEntryViewSet(viewsets.ReadOnlyModelViewSet):
         result = service_status(last_entry.odometer_km)
         for item in result:
             km_until_service.labels(service_type=item["service"]).set(item["km_remaining"])
+
+        return Response(result)
+
+    @action(detail=False, methods=["get"], url_path="suggested-fuel")
+    def suggested_fuel(self, request):
+        """Suggested euros to buy fuel without overflowing the tank."""
+        last_entry = FuelEntry.objects.first()
+        if not last_entry:
+            return Response(
+                {"error": "No fuel entries found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        result = suggested_fuel_spend(settings.TANK_SIZE_LITERS, last_entry)
+        if result is None:
+            return Response(
+                {"error": "Could not calculate suggested fuel spend"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         return Response(result)
