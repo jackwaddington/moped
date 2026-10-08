@@ -80,10 +80,13 @@ WSGI_APPLICATION = "moped_service.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# DATABASE_PATH lets a container keep the SQLite file on a mounted volume
+# (e.g. /data/db.sqlite3) so the API and the sync job share one DB and it
+# survives restarts. Defaults to the in-repo path used by the LXC deploy.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": config("DATABASE_PATH", default=str(BASE_DIR / "db.sqlite3")),
     }
 }
 
