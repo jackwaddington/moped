@@ -2,6 +2,13 @@
 
 Django REST API that pulls fuel data from Google Sheets (fed by Google Forms) and exposes efficiency calculations, cost analysis, and service reminders.
 
+## Status
+
+**Laid up for winter since 2026-11-14**, and declared off the road with the insurer. Before riding again,
+restart the insurance (calendar reminder 2027-03-01). No fuel entries come in while it is laid up, so the
+service reminders do not move, and that is expected. The GPS tracker is not tied to the moped: the
+`device_assignment` table in the gps DB says when it was on the moped, and only those trips are moped trips.
+
 ## What it does
 
 I record every fuel stop on my moped via a Google Form (date, odometer, litres, cost). This service syncs that data and calculates:
